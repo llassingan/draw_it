@@ -1,0 +1,36 @@
+{
+  "name": "whiteboard-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Real-time collaborative whiteboard (monorepo root)",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "build": "pnpm -r --stream build",
+    "test": "pnpm -r --stream test",
+    "test:coverage": "pnpm -r --stream test:coverage",
+    "e2e": "pnpm --filter @whiteboard/web e2e",
+    "e2e:ci": "pnpm --filter @whiteboard/web e2e:ci",
+    "typecheck": "pnpm -r --stream typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,cjs,mjs,json,md,yml,yaml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,cjs,mjs,json,md,yml,yaml,css}\"",
+    "clean": "pnpm -r --stream clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@typescript-eslint/eslint-plugin": "^8.18.2",
+    "@typescript-eslint/parser": "^8.18.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "3.7.0",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}

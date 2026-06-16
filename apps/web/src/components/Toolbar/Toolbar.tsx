@@ -5,14 +5,20 @@ import { useBoardStore } from '../../store/boardStore';
 const TOOL_BUTTONS: ReadonlyArray<{ tool: Tool; label: string; icon: string; testId: string }> = [
   { tool: 'pen', label: 'Pen', icon: '✏️', testId: 'tool-pen' },
   { tool: 'rect', label: 'Rectangle', icon: '▭', testId: 'tool-rect' },
+  { tool: 'triangle', label: 'Triangle', icon: '△', testId: 'tool-triangle' },
+  { tool: 'circle', label: 'Circle', icon: '○', testId: 'tool-circle' },
   { tool: 'eraser', label: 'Eraser', icon: '⌫', testId: 'tool-eraser' },
 ];
 
 export default function Toolbar(): JSX.Element {
   const tool = useBoardStore((s) => s.tool);
   const color = useBoardStore((s) => s.color);
+  const zoom = useBoardStore((s) => s.zoom);
   const setTool = useBoardStore((s) => s.setTool);
   const setColor = useBoardStore((s) => s.setColor);
+  const zoomIn = useBoardStore((s) => s.zoomIn);
+  const zoomOut = useBoardStore((s) => s.zoomOut);
+  const resetZoom = useBoardStore((s) => s.resetZoom);
 
   return (
     <div
@@ -65,6 +71,38 @@ export default function Toolbar(): JSX.Element {
             />
           );
         })}
+      </div>
+
+      <div className="mx-1 h-6 w-px bg-board-border" />
+
+      <div className="flex items-center gap-1" data-testid="zoom-controls">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          data-testid="zoom-out"
+          onClick={zoomOut}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-board-surface text-lg text-gray-700 transition hover:bg-gray-200"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          aria-label="Reset zoom to 100%"
+          data-testid="zoom-reset"
+          onClick={resetZoom}
+          className="flex h-8 min-w-12 items-center justify-center rounded-lg bg-board-surface px-2 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Zoom in"
+          data-testid="zoom-in"
+          onClick={zoomIn}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-board-surface text-lg text-gray-700 transition hover:bg-gray-200"
+        >
+          +
+        </button>
       </div>
     </div>
   );

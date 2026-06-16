@@ -1,4 +1,3 @@
-
 import { isShape, type Point, type Shape } from '@whiteboard/shared';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -6,8 +5,10 @@ import { useAwareness } from '../../hooks/useAwareness';
 import { useYDoc } from '../../hooks/useYDoc';
 import { useBoardStore } from '../../store/boardStore';
 import Canvas from '../Canvas/Canvas';
+import { startCircle, updateCircle } from '../Canvas/drawCircle';
 import { startPenStroke, extendPenStroke } from '../Canvas/drawPen';
 import { startRect, updateRect } from '../Canvas/drawRect';
+import { startTriangle, updateTriangle } from '../Canvas/drawTriangle';
 import { eraseAtPoint } from '../Canvas/eraser';
 import Cursors from '../Cursors/Cursors';
 import Toolbar from '../Toolbar/Toolbar';
@@ -18,18 +19,26 @@ export interface BoardProps {
   wsUrl: string;
 }
 
+type ActiveShape =
+  | { kind: 'pen'; id: string }
+  | { kind: 'rect'; id: string }
+  | { kind: 'triangle'; id: string }
+  | { kind: 'circle'; id: string }
+  | null;
+
 export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   const { shapes, provider, isReady, isConnected } = useYDoc(roomId, wsUrl);
   const { users, setCursor, setTool, localUserId } = useAwareness(provider);
   const tool = useBoardStore((s) => s.tool);
   const color = useBoardStore((s) => s.color);
   const strokeWidth = useBoardStore((s) => s.strokeWidth);
+  const zoom = useBoardStore((s) => s.zoom);
+  const setZoom = useBoardStore((s) => s.setZoom);
   const boardSetTool = useBoardStore((s) => s.setTool);
   const boardSetColor = useBoardStore((s) => s.setColor);
 
   const [localShapes, setLocalShapes] = useState<Shape[]>([]);
-  const [activeStrokeId, setActiveStrokeId] = useState<string | null>(null);
-  const [activeRectId, setActiveRectId] = useState<string | null>(null);
+  const [active, setActive] = useState<ActiveShape>(null);
 
   useEffect(() => {
     if (shapes === null) return;
@@ -70,25 +79,17 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
     (point: Point): void => {
       if (shapes === null || localUserId === null) return;
       if (tool === 'pen') {
-        const stroke = startPenStroke(
-          shapes,
-          localUserId,
-          color,
-          point,
-          color,
-          strokeWidth,
-        );
-        setActiveStrokeId(stroke.id);
+        const stroke = startPenStroke(shapes, localUserId, color, point, color, strokeWidth);
+        setActive({ kind: 'pen', id: stroke.id });
       } else if (tool === 'rect') {
-        const rect = startRect(
-          shapes,
-          localUserId,
-          color,
-          point,
-          color,
-          strokeWidth,
-        );
-        setActiveRectId(rect.id);
+        const rect = startRect(shapes, localUserId, color, point, color, strokeWidth);
+        setActive({ kind: 'rect', id: rect.id });
+      } else if (tool === 'triangle') {
+        const tri = startTriangle(shapes, localUserId, color, point, color, strokeWidth);
+        setActive({ kind: 'triangle', id: tri.id });
+      } else if (tool === 'circle') {
+        const c = startCircle(shapes, localUserId, color, point, color, strokeWidth);
+        setActive({ kind: 'circle', id: c.id });
       } else if (tool === 'eraser') {
         eraseAtPoint(shapes, point);
       }
@@ -99,20 +100,25 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   const handlePointerMove = useCallback(
     (point: Point): void => {
       if (shapes === null) return;
-      if (tool === 'pen' && activeStrokeId !== null) {
-        extendPenStroke(shapes, activeStrokeId, point);
-      } else if (tool === 'rect' && activeRectId !== null) {
-        updateRect(shapes, activeRectId, point);
-      } else if (tool === 'eraser') {
-        eraseAtPoint(shapes, point);
+      if (active === null) {
+        if (tool === 'eraser') eraseAtPoint(shapes, point);
+        return;
+      }
+      if (active.kind === 'pen') {
+        extendPenStroke(shapes, active.id, point);
+      } else if (active.kind === 'rect') {
+        updateRect(shapes, active.id, point);
+      } else if (active.kind === 'triangle') {
+        updateTriangle(shapes, active.id, point);
+      } else if (active.kind === 'circle') {
+        updateCircle(shapes, active.id, point);
       }
     },
-    [shapes, tool, activeStrokeId, activeRectId],
+    [shapes, tool, active],
   );
 
   const handlePointerUp = useCallback((): void => {
-    setActiveStrokeId(null);
-    setActiveRectId(null);
+    setActive(null);
   }, []);
 
   const handleCursorMove = useCallback(
@@ -122,12 +128,31 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
     [setCursor],
   );
 
+  const handleWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      const factor = 1 + direction * 0.1;
+      setZoom(zoom * factor);
+    },
+    [setZoom, zoom],
+  );
+
   return (
     <div className="flex h-full w-full flex-col bg-board-surface">
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+      <div
+        className="relative flex flex-1 items-center justify-center overflow-hidden"
+        onWheel={handleWheel}
+      >
         <div
           className="relative"
           data-testid="canvas-stack"
+          data-zoom={zoom}
+          style={{
+            transform: `scale(${zoom})`,
+            transformOrigin: 'center center',
+          }}
         >
           <Canvas
             shapes={localShapes}
@@ -143,6 +168,7 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
         <UserList users={users} localUserId={localUserId} />
         <Toolbar />
         <ConnectionBadge isConnected={isConnected} isReady={isReady} />
+        <ZoomBadge zoom={zoom} />
       </div>
     </div>
   );
@@ -160,6 +186,17 @@ function ConnectionBadge({ isConnected, isReady }: { isConnected: boolean; isRea
         : isConnected
           ? 'Syncing with peers…'
           : 'Working offline — local changes will sync when peers connect'}
+    </div>
+  );
+}
+
+function ZoomBadge({ zoom }: { zoom: number }): JSX.Element {
+  return (
+    <div
+      className="pointer-events-none absolute bottom-3 right-4 z-40 rounded-full bg-gray-800/85 px-3 py-1 text-xs font-medium text-white shadow"
+      data-testid="zoom-badge"
+    >
+      {Math.round(zoom * 100)}%
     </div>
   );
 }

@@ -1,6 +1,6 @@
 export type ShapeId = string;
 
-export type Tool = 'pen' | 'rect' | 'eraser' | 'select';
+export type Tool = 'pen' | 'rect' | 'triangle' | 'circle' | 'eraser' | 'select';
 
 export interface Point {
   readonly x: number;
@@ -29,7 +29,24 @@ export interface RectShape extends BaseShape {
   end: Point;
 }
 
-export type Shape = PenStroke | RectShape;
+export interface TriangleShape extends BaseShape {
+  type: 'triangle';
+  color: string;
+  width: number;
+  a: Point;
+  b: Point;
+  c: Point;
+}
+
+export interface CircleShape extends BaseShape {
+  type: 'circle';
+  color: string;
+  width: number;
+  center: Point;
+  radius: number;
+}
+
+export type Shape = PenStroke | RectShape | TriangleShape | CircleShape;
 
 export type ShapeType = Shape['type'];
 
@@ -39,15 +56,27 @@ export const isPenStroke = (shape: Shape): shape is PenStroke =>
 export const isRectShape = (shape: Shape): shape is RectShape =>
   shape.type === 'rect';
 
+export const isTriangleShape = (shape: Shape): shape is TriangleShape =>
+  shape.type === 'triangle';
+
+export const isCircleShape = (shape: Shape): shape is CircleShape =>
+  shape.type === 'circle';
+
 export const isShape = (value: unknown): value is Shape => {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
-  return candidate['type'] === 'pen' || candidate['type'] === 'rect';
+  const t = candidate['type'];
+  return t === 'pen' || t === 'rect' || t === 'triangle' || t === 'circle';
 };
 
 export const isTool = (value: unknown): value is Tool => {
   return (
-    value === 'pen' || value === 'rect' || value === 'eraser' || value === 'select'
+    value === 'pen' ||
+    value === 'rect' ||
+    value === 'triangle' ||
+    value === 'circle' ||
+    value === 'eraser' ||
+    value === 'select'
   );
 };
 
@@ -119,11 +148,57 @@ function validateRectShape(value: object): RectShape | null {
   };
 }
 
+function validateTriangleShape(value: object): TriangleShape | null {
+  const candidate = value as Record<string, unknown>;
+  if (!isBaseShape(candidate)) return null;
+  if (candidate['type'] !== 'triangle') return null;
+  if (!isNonEmptyString(candidate['color'])) return null;
+  if (!isFiniteNumber(candidate['width']) || candidate['width'] <= 0) return null;
+  if (!isPoint(candidate['a']) || !isPoint(candidate['b']) || !isPoint(candidate['c'])) {
+    return null;
+  }
+  return {
+    id: candidate['id'],
+    authorId: candidate['authorId'],
+    authorColor: candidate['authorColor'],
+    createdAt: candidate['createdAt'],
+    type: 'triangle',
+    color: candidate['color'],
+    width: candidate['width'],
+    a: candidate['a'],
+    b: candidate['b'],
+    c: candidate['c'],
+  };
+}
+
+function validateCircleShape(value: object): CircleShape | null {
+  const candidate = value as Record<string, unknown>;
+  if (!isBaseShape(candidate)) return null;
+  if (candidate['type'] !== 'circle') return null;
+  if (!isNonEmptyString(candidate['color'])) return null;
+  if (!isFiniteNumber(candidate['width']) || candidate['width'] <= 0) return null;
+  if (!isPoint(candidate['center'])) return null;
+  if (!isFiniteNumber(candidate['radius']) || candidate['radius'] < 0) return null;
+  return {
+    id: candidate['id'],
+    authorId: candidate['authorId'],
+    authorColor: candidate['authorColor'],
+    createdAt: candidate['createdAt'],
+    type: 'circle',
+    color: candidate['color'],
+    width: candidate['width'],
+    center: candidate['center'],
+    radius: candidate['radius'],
+  };
+}
+
 export function validateShape(input: unknown): Shape | null {
   if (typeof input !== 'object' || input === null) return null;
   const value = input as Record<string, unknown>;
   if (value['type'] === 'pen') return validatePenStroke(value);
   if (value['type'] === 'rect') return validateRectShape(value);
+  if (value['type'] === 'triangle') return validateTriangleShape(value);
+  if (value['type'] === 'circle') return validateCircleShape(value);
   return null;
 }
 

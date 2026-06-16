@@ -6,6 +6,8 @@ import type { Shape } from '@whiteboard/shared';
 import { eraseAtPoint } from './eraser';
 import { startPenStroke } from './drawPen';
 import { startRect } from './drawRect';
+import { startCircle } from './drawCircle';
+import { startTriangle } from './drawTriangle';
 
 function newDoc(): { doc: Y.Doc; shapes: Y.Array<Shape> } {
   const doc = new Y.Doc();
@@ -41,6 +43,20 @@ describe('eraseAtPoint', () => {
     startPenStroke(shapes, 'u', '#000', { x: 0, y: 0 }, '#000', 2);
     expect(shapes.length).toBe(1);
     eraseAtPoint(shapes, { x: 0, y: 0 });
+    expect(shapes.length).toBe(0);
+  });
+
+  it('erases a triangle when the pointer is inside it', () => {
+    const { shapes } = newDoc();
+    startTriangle(shapes, 'u', '#000', { x: 0, y: 0 }, '#000', 2);
+    eraseAtPoint(shapes, { x: 50, y: 30 });
+    expect(shapes.length).toBe(0);
+  });
+
+  it('erases a circle when the pointer is inside it', () => {
+    const { shapes } = newDoc();
+    startCircle(shapes, 'u', '#000', { x: 50, y: 50 }, '#000', 2);
+    eraseAtPoint(shapes, { x: 50, y: 50 });
     expect(shapes.length).toBe(0);
   });
 

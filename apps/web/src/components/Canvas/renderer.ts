@@ -1,5 +1,4 @@
-import { CANVAS_BACKGROUND } from '@whiteboard/shared';
-import type { Shape } from '@whiteboard/shared';
+import { CANVAS_BACKGROUND, type Shape } from '@whiteboard/shared';
 
 export function clearCanvas(
   ctx: CanvasRenderingContext2D,
@@ -17,18 +16,24 @@ export function renderShapes(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const shape of shapes) {
-    if (shape.type === 'pen') {
-      drawPenStroke(ctx, shape);
-    } else {
-      drawRect(ctx, shape);
+    switch (shape.type) {
+      case 'pen':
+        drawPenStroke(ctx, shape);
+        break;
+      case 'rect':
+        drawRect(ctx, shape);
+        break;
+      case 'triangle':
+        drawTriangle(ctx, shape);
+        break;
+      case 'circle':
+        drawCircle(ctx, shape);
+        break;
     }
   }
 }
 
-function drawPenStroke(
-  ctx: CanvasRenderingContext2D,
-  shape: Extract<Shape, { type: 'pen' }>,
-): void {
+function drawPenStroke(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'pen' }>): void {
   if (shape.points.length < 2) return;
   const firstX = shape.points[0];
   const firstY = shape.points[1];
@@ -46,10 +51,7 @@ function drawPenStroke(
   ctx.stroke();
 }
 
-function drawRect(
-  ctx: CanvasRenderingContext2D,
-  shape: Extract<Shape, { type: 'rect' }>,
-): void {
+function drawRect(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'rect' }>): void {
   const x = Math.min(shape.start.x, shape.end.x);
   const y = Math.min(shape.start.y, shape.end.y);
   const w = Math.abs(shape.end.x - shape.start.x);
@@ -57,4 +59,31 @@ function drawRect(
   ctx.strokeStyle = shape.color;
   ctx.lineWidth = shape.width;
   ctx.strokeRect(x, y, w, h);
+}
+
+function drawTriangle(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'triangle' }>): void {
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = shape.width;
+  ctx.beginPath();
+  ctx.moveTo(shape.a.x, shape.a.y);
+  ctx.lineTo(shape.b.x, shape.b.y);
+  ctx.lineTo(shape.c.x, shape.c.y);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function drawCircle(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'circle' }>): void {
+  if (shape.radius <= 0) {
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = shape.width;
+    ctx.beginPath();
+    ctx.arc(shape.center.x, shape.center.y, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    return;
+  }
+  ctx.strokeStyle = shape.color;
+  ctx.lineWidth = shape.width;
+  ctx.beginPath();
+  ctx.arc(shape.center.x, shape.center.y, shape.radius, 0, Math.PI * 2);
+  ctx.stroke();
 }

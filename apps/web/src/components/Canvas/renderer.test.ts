@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { clearCanvas, renderShapes } from './renderer';
-import type { PenStroke, RectShape } from '@whiteboard/shared';
+import type { CircleShape, PenStroke, RectShape, Shape, TriangleShape } from '@whiteboard/shared';
 
 function makeMockContext(): {
   ctx: CanvasRenderingContext2D;
@@ -48,19 +48,57 @@ describe('clearCanvas', () => {
   });
 });
 
+const pen: PenStroke = {
+  id: 'p1',
+  type: 'pen',
+  authorId: 'a',
+  authorColor: '#000',
+  createdAt: 0,
+  color: '#0f0',
+  width: 3,
+  points: [10, 10, 50, 50, 100, 30],
+};
+
+const rect: RectShape = {
+  id: 'r1',
+  type: 'rect',
+  authorId: 'a',
+  authorColor: '#000',
+  createdAt: 0,
+  color: '#f00',
+  width: 2,
+  start: { x: 0, y: 0 },
+  end: { x: 100, y: 100 },
+};
+
+const triangle: TriangleShape = {
+  id: 't1',
+  type: 'triangle',
+  authorId: 'a',
+  authorColor: '#000',
+  createdAt: 0,
+  color: '#00f',
+  width: 4,
+  a: { x: 0, y: 100 },
+  b: { x: 100, y: 100 },
+  c: { x: 50, y: 0 },
+};
+
+const circle: CircleShape = {
+  id: 'c1',
+  type: 'circle',
+  authorId: 'a',
+  authorColor: '#000',
+  createdAt: 0,
+  color: '#ff0',
+  width: 2,
+  center: { x: 50, y: 50 },
+  radius: 40,
+};
+
 describe('renderShapes', () => {
   it('renders a pen stroke with multiple points', () => {
     const { ctx, calls } = makeMockContext();
-    const pen: PenStroke = {
-      id: 'p1',
-      type: 'pen',
-      authorId: 'a',
-      authorColor: '#000',
-      createdAt: 0,
-      color: '#0f0',
-      width: 3,
-      points: [10, 10, 50, 50, 100, 30],
-    };
     renderShapes(ctx, [pen]);
     expect(calls.find((c) => c.method === 'beginPath')).toBeDefined();
     expect(calls.find((c) => c.method === 'moveTo')).toBeDefined();
@@ -70,55 +108,46 @@ describe('renderShapes', () => {
 
   it('renders a rect using strokeRect', () => {
     const { ctx, calls } = makeMockContext();
-    const rect: RectShape = {
-      id: 'r1',
-      type: 'rect',
-      authorId: 'a',
-      authorColor: '#000',
-      createdAt: 0,
-      color: '#f00',
-      width: 2,
-      start: { x: 10, y: 20 },
-      end: { x: 110, y: 220 },
-    };
     renderShapes(ctx, [rect]);
     const strokeRect = calls.find((c) => c.method === 'strokeRect');
     expect(strokeRect).toBeDefined();
-    expect(strokeRect?.args).toEqual([10, 20, 100, 200]);
+    expect(strokeRect?.args).toEqual([0, 0, 100, 100]);
   });
 
   it('skips a pen with fewer than 2 points', () => {
     const { ctx, calls } = makeMockContext();
-    const pen: PenStroke = {
-      id: 'p1',
-      type: 'pen',
-      authorId: 'a',
-      authorColor: '#000',
-      createdAt: 0,
-      color: '#000',
-      width: 2,
-      points: [10],
-    };
-    renderShapes(ctx, [pen]);
+    renderShapes(ctx, [{ ...pen, points: [10] }]);
     expect(calls.find((c) => c.method === 'beginPath')).toBeUndefined();
   });
 
   it('handles inverted rect drag direction (end < start)', () => {
     const { ctx, calls } = makeMockContext();
-    const rect: RectShape = {
-      id: 'r1',
-      type: 'rect',
-      authorId: 'a',
-      authorColor: '#000',
-      createdAt: 0,
-      color: '#f00',
-      width: 2,
-      start: { x: 200, y: 200 },
-      end: { x: 100, y: 100 },
-    };
-    renderShapes(ctx, [rect]);
-    const strokeRect = calls.find((c) => c.method === 'strokeRect');
-    expect(strokeRect?.args).toEqual([100, 100, 100, 100]);
+    renderShapes(ctx, [{ ...rect, start: { x: 200, y: 200 }, end: { x: 100, y: 100 } }]);
+    expect(calls.find((c) => c.method === 'strokeRect')?.args).toEqual([100, 100, 100, 100]);
+  });
+
+  it('renders a triangle with three sides and a close', () => {
+    const { ctx, calls } = makeMockContext();
+    renderShapes(ctx, [triangle]);
+    expect(calls.filter((c) => c.method === 'lineTo')).toHaveLength(2);
+    expect(calls.find((c) => c.method === 'closePath')).toBeDefined();
+    const moveTo = calls.find((c) => c.method === 'moveTo');
+    expect(moveTo?.args).toEqual([0, 100]);
+  });
+
+  it('renders a circle using arc with full 2pi sweep', () => {
+    const { ctx, calls } = makeMockContext();
+    renderShapes(ctx, [circle]);
+    const arc = calls.find((c) => c.method === 'arc');
+    expect(arc).toBeDefined();
+    expect(arc?.args).toEqual([50, 50, 40, 0, Math.PI * 2]);
+  });
+
+  it('renders a zero-radius circle as a tiny arc', () => {
+    const { ctx, calls } = makeMockContext();
+    renderShapes(ctx, [{ ...circle, radius: 0 }]);
+    const arc = calls.find((c) => c.method === 'arc');
+    expect(arc?.args).toEqual([50, 50, 0, 0, Math.PI * 2]);
   });
 
   it('sets lineCap and lineJoin to round', () => {
@@ -131,5 +160,15 @@ describe('renderShapes', () => {
   it('does not throw on empty shape list', () => {
     const { ctx } = makeMockContext();
     expect(() => renderShapes(ctx, [])).not.toThrow();
+  });
+
+  it('dispatches all four shape types in one call', () => {
+    const { ctx, calls } = makeMockContext();
+    const all: Shape[] = [pen, rect, triangle, circle];
+    renderShapes(ctx, all);
+    expect(calls.find((c) => c.method === 'beginPath')).toBeDefined();
+    expect(calls.find((c) => c.method === 'strokeRect')).toBeDefined();
+    expect(calls.find((c) => c.method === 'closePath')).toBeDefined();
+    expect(calls.find((c) => c.method === 'arc')).toBeDefined();
   });
 });

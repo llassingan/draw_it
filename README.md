@@ -29,8 +29,8 @@ This deployment exposes the project on two domains pointed at this VPS:
 
 | Service    | Domain                       | Local port |
 | ---------- | ---------------------------- | ---------- |
-| Web app    | `staging.mahara.web.id`      | `14022`    |
-| WebSocket  | `api-staging.mahara.web.id`  | `14045`    |
+| Web app    | `http://localhost`           | `14022`    |
+| WebSocket  | `http://localhost`           | `14045`    |
 
 The frontend automatically connects the WebSocket to the same hostname on port `14045`. So `staging.mahara.web.id` (port 14022) talks to `api-staging.mahara.web.id:14045`.
 

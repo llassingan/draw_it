@@ -188,4 +188,22 @@ describe('generateShapeId', () => {
     const b = generateShapeId();
     expect(a).not.toBe(b);
   });
+
+  it('uses the time+random fallback when crypto.randomUUID is unavailable', () => {
+    const originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: { randomUUID: undefined },
+    });
+    try {
+      const id = generateShapeId();
+      expect(id.length).toBeGreaterThan(0);
+      expect(id).toMatch(/-/);
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: originalCrypto,
+      });
+    }
+  });
 });

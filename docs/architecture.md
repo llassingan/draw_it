@@ -85,12 +85,15 @@ The awareness state is *ephemeral* — it is not persisted in the Y.Doc and is a
 
 | Thing                          | Lives in            | Why                              |
 | ------------------------------ | ------------------- | -------------------------------- |
-| Shapes (pen, rect)             | `Y.Array`            | Must be shared + persisted        |
+| Shapes (pen, rect, triangle, circle) | `Y.Array`            | Must be shared + persisted        |
 | Awareness (cursor, tool, name) | `provider.awareness` | Ephemeral, auto-expires           |
-| Selected tool (pen/rect/eraser)| React (zustand)      | Per-user, not shared              |
+| Selected tool (pen/rect/triangle/circle/eraser/pan) | React (zustand) | Per-user, not shared |
 | Selected color                 | React (zustand)      | Per-user, not shared              |
 | Stroke width                   | React (zustand)      | Per-user, not shared              |
 | Loading / connection state     | React (useState)     | Component-local                   |
+| View (pan + zoom)              | React (zustand)      | Per-user, not shared              |
+| Space-key held                 | React (useState)     | Component-local, transient        |
+| Active panning drag            | React (useState)     | Component-local, transient        |
 
 A subtle consequence: the toolbar's selected tool is in React, but the same tool gets mirrored into awareness so other users can see what tool icon to draw next to a user's cursor.
 
@@ -121,16 +124,49 @@ When the WebSocket drops, y-websocket buffers updates in IndexedDB (via `y-index
 
 The biggest single optimisation is that **React doesn't re-render on every shape change** — only the canvas does, via a ref and a useEffect on the Y.Array observer.
 
-## Zoom
+## Infinite canvas — view transform
 
-Zoom is per-user and **not** synced via the Y.Doc. It is applied as a CSS `transform: scale(zoom)` on the `canvas-stack` wrapper that contains both the canvas and the cursors overlay. Because the transform is purely visual:
+Zoom and pan are per-user and **not** synced via the Y.Doc. Both live in a single zustand `view: { panX, panY, zoom }` object. The view is applied as a CSS transform on the `canvas-stack` wrapper that contains the canvas, the cursors overlay, and the active shape.
 
-- Canvas internal coordinates stay at 0–1080 / 0–720, so all peers see shapes at the same positions regardless of their local zoom.
-- Awareness cursor positions (in canvas-space) are scaled together with the canvas, so remote cursors remain perfectly aligned.
+```
+canvas-stack  →  transform: translate(view.panX, view.panY) scale(view.zoom)
+                       ↓                              ↓
+                    pan in px                       zoom factor
+```
+
+The transform is `transform-origin: 0 0`, so a point at world coordinate `(wx, wy)` renders at screen position `(wx * zoom + panX, wy * zoom + panY)`. The reverse is `worldX = (screenX - panX) / zoom`.
+
+The Canvas component translates this on the GPU: `ctx.translate(panX, panY); ctx.scale(zoom, zoom);` is applied before drawing shapes, so the renderer itself is unchanged — it still draws at world coordinates and the GPU does the screen mapping. Mouse events are converted from screen to world using the inverse formula before being passed to the draw handlers.
+
+**Zoom-to-cursor math.** When the user Ctrl+wheel, the world point under the cursor must stay under the cursor. Given the current view, the new zoom, and the cursor's screen position, the new pan is:
+
+```ts
+const worldX = (cursorX - view.panX) / view.zoom;
+const worldY = (cursorY - view.panY) / view.zoom;
+const newPanX = cursorX - worldX * newZoom;
+const newPanY = cursorY - worldY * newZoom;
+```
+
+This is a pure function in `boardStore.ts` (`panForZoomToPoint`) so it can be unit-tested without React.
+
+**Pan UX.** Three ways to pan, all of them per-user and never synced:
+
+1. **Hand tool** — select the pan tool in the toolbar, then click+drag.
+2. **Space + drag** — hold `Space` (any tool active), then drag. Cursor changes to `grab`/`grabbing`.
+3. **Middle-mouse drag** — press the middle mouse button and drag.
+
+The viewport's `onPointerDown` handler captures pointer events, records the start position, and on `pointermove` it computes the delta from the start and calls `setPan`. Pointer capture is used so dragging outside the viewport still pans.
+
+**Initial centering.** On first mount, a `useLayoutEffect` reads the viewport's `getBoundingClientRect()` and computes the pan to center the 1080×720 canvas. The effect runs only once and only if `panX === 0 && panY === 0` (i.e. the user hasn't panned).
+
+**Reset view.** The bottom-right zoom badge is now a button. Clicking it calls `resetView()`, which sets `view: { panX: 0, panY: 0, zoom: 1 }`. This snaps the view back to identity but the canvas may still need re-centering depending on viewport size — the initial centering effect does not re-run.
+
+Because the transform is purely visual:
+
+- Canvas internal coordinates can be any world value — shapes drawn at `(5000, 3000)` are valid and remain visible if the user pans there.
+- Awareness cursor positions (in world-space) are scaled together with the canvas, so remote cursors remain perfectly aligned regardless of any peer's local view.
 - No Y.Doc migration, no peer-side change, no breaking change to existing rooms.
-
-Range is clamped to `[0.1, 5]` (10 % to 500 %) to prevent the canvas from disappearing at extreme scales. Wheel zoom requires Ctrl/Cmd so plain scrolling doesn't change the view.
 
 ## Why no infinite canvas / zoom / persistence
 
-The v1 spec is bounded: 1080×720 px, no zoom, no scroll, no auth, no DB. This is intentional — it keeps the project learnable and the test surface small. Stretch goals (Y.UndoManager, selection tool, SQLite snapshot, PNG export) are documented in the project plan but not implemented.
+~~The v1 spec is bounded: 1080×720 px, no zoom, no scroll, no auth, no DB.~~ (Removed in v0.3 — the canvas is now pannable in all directions and zoomable via Ctrl+wheel, the hand tool, or space+drag. The grid background signals the "infinite" feel. Persistence and auth remain unimplemented stretch goals.)

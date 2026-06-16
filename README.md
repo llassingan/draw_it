@@ -11,6 +11,8 @@ pnpm install
 
 Open <http://localhost:14022> in two browser tabs, append `?room=foo` to the URL of one of them, and draw. Tabs on the same `/room=foo` see each other's strokes and cursors.
 
+The canvas is **infinite** — pan with the ✋ tool, hold `Space` and drag, or middle-mouse drag. Zoom with `Ctrl/⌘ + scroll` (toward the cursor) or the `−` / `100%` / `+` toolbar buttons. The view is per-user: each tab has its own pan and zoom.
+
 `./scripts/start.sh` writes PIDs and logs to `.runtime/`. `./scripts/stop.sh` kills both processes.
 
 ### Production build
@@ -164,7 +166,7 @@ There is no local mirror of shapes in React state. The Y.Array is the only sourc
 - **Awareness cursor** is throttled to 30 fps (33 ms) and skipped if the cursor moved < 2 px.
 - **Canvas redraws** repaint the full canvas on every Y.Array change. With < 500 shapes this stays under 16 ms on a modern laptop.
 - The React tree is **not** re-rendered on every shape change — the canvas is driven via a ref + a manual `useEffect` that redraws on array mutation.
-- **Zoom** is a CSS `transform: scale(zoom)` on the canvas-stack wrapper. The Y.Doc is never touched, so peers don't see any zoom change. Range 10 % – 500 %; Ctrl/Cmd + wheel zooms, plain wheel does not.
+- **View (pan + zoom)** is a CSS `transform: translate(panX, panY) scale(zoom)` on the canvas-stack wrapper with `transform-origin: 0 0`. The Y.Doc is never touched, so peers don't see your pan or zoom. Zoom range 10 % – 500 %. Pan has no bounds — the world is infinite.
 
 ## Concurrency
 
@@ -180,8 +182,8 @@ There is no local mirror of shapes in React state. The Y.Array is the only sourc
 | TypeScript            | `tsc --noEmit`| 0 errors                        |
 | ESLint                | `eslint .`    | 0 errors, 0 warnings            |
 | Unit tests (shared)   | `vitest run`  | 52/52 pass, ≥ 80% line coverage |
-| Unit tests (web)      | `vitest run`  | 82/82 pass (2 skipped on happy-dom wheel), ≥ 80% line coverage |
-| E2E tests             | `playwright`  | 7/7 pass                        |
+| Unit tests (web)      | `vitest run`  | 99/99 pass (3 skipped on happy-dom wheel + panning-pointer test), ≥ 80% line coverage |
+| E2E tests             | `playwright`  | 14/14 pass                      |
 | Build                 | `vite build`  | bundle < 300 KB gzipped (~79 KB)|
 
 ## Testing

@@ -17,12 +17,14 @@ export const CURSOR_FADE_AFTER_MS = 3_000;
 
 export const CURSOR_DELTA_PX = 2;
 
-export const TOOLS: readonly Tool[] = ['pen', 'rect', 'triangle', 'circle', 'eraser'] as const;
+export const TOOLS: readonly Tool[] = ['pen', 'rect', 'triangle', 'circle', 'eraser', 'pan'] as const;
 
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 5;
 export const ZOOM_STEP = 0.1;
 export const ZOOM_DEFAULT = 1;
+
+export const GRID_SPACING_PX = 24;
 
 export const DEFAULT_ROOM_ID = 'default';
 

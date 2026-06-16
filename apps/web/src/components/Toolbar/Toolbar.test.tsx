@@ -10,13 +10,14 @@ describe('Toolbar', () => {
     useBoardStore.getState().reset();
   });
 
-  it('renders all five tool buttons and the color picker', () => {
+  it('renders all six tool buttons and the color picker', () => {
     render(<Toolbar />);
     expect(screen.getByTestId('tool-pen')).toBeInTheDocument();
     expect(screen.getByTestId('tool-rect')).toBeInTheDocument();
     expect(screen.getByTestId('tool-triangle')).toBeInTheDocument();
     expect(screen.getByTestId('tool-circle')).toBeInTheDocument();
     expect(screen.getByTestId('tool-eraser')).toBeInTheDocument();
+    expect(screen.getByTestId('tool-pan')).toBeInTheDocument();
     expect(screen.getByTestId('color-picker')).toBeInTheDocument();
   });
 
@@ -39,6 +40,8 @@ describe('Toolbar', () => {
     expect(useBoardStore.getState().tool).toBe('circle');
     await user.click(screen.getByTestId('tool-eraser'));
     expect(useBoardStore.getState().tool).toBe('eraser');
+    await user.click(screen.getByTestId('tool-pan'));
+    expect(useBoardStore.getState().tool).toBe('pan');
   });
 
   it('clicking a color swatch updates the store', async () => {
@@ -64,23 +67,27 @@ describe('Toolbar', () => {
   it('zoom-in and zoom-out buttons mutate the store', async () => {
     const user = userEvent.setup();
     render(<Toolbar />);
-    const initial = useBoardStore.getState().zoom;
+    const initial = useBoardStore.getState().view.zoom;
     await user.click(screen.getByTestId('zoom-in'));
-    expect(useBoardStore.getState().zoom).toBeGreaterThan(initial);
+    expect(useBoardStore.getState().view.zoom).toBeGreaterThan(initial);
     await user.click(screen.getByTestId('zoom-out'));
-    expect(useBoardStore.getState().zoom).toBe(initial);
+    expect(useBoardStore.getState().view.zoom).toBe(initial);
   });
 
   it('zoom-reset returns to 100%', async () => {
     const user = userEvent.setup();
-    useBoardStore.setState({ zoom: 2.5 });
+    useBoardStore.setState({
+      view: { ...useBoardStore.getState().view, zoom: 2.5 },
+    });
     render(<Toolbar />);
     await user.click(screen.getByTestId('zoom-reset'));
-    expect(useBoardStore.getState().zoom).toBe(1);
+    expect(useBoardStore.getState().view.zoom).toBe(1);
   });
 
   it('the zoom-reset button label shows the current percentage', () => {
-    useBoardStore.setState({ zoom: 1.5 });
+    useBoardStore.setState({
+      view: { ...useBoardStore.getState().view, zoom: 1.5 },
+    });
     render(<Toolbar />);
     expect(screen.getByTestId('zoom-reset').textContent).toBe('150%');
   });

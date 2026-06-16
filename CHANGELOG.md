@@ -7,6 +7,26 @@ Format: [Semantic Versioning](https://semver.org/) + [Keep a Changelog](https://
 
 ### Added
 
+#### Infinite / pannable canvas (v0.3)
+
+The canvas is no longer bounded to a 1080×720 visible area. Users can pan freely in all directions, with smooth zoom-to-cursor, and the world is "infinite" — shapes can be drawn at any coordinate and stay in their world positions across sessions.
+
+- **Pan (hand tool)** — new `tool: 'pan'` button in the toolbar. Cursor becomes `grab` / `grabbing` while panning. Pure per-user view state, never synced.
+- **Space + drag** — hold `Space` and drag to pan, regardless of the active tool. Cursor changes to `grab` / `grabbing`.
+- **Middle-mouse drag** — press the middle mouse button and drag to pan.
+- **Zoom-to-cursor** — Ctrl/Cmd + wheel zooms toward the cursor's world point so the spot under the cursor stays stationary. Plain wheel events are ignored.
+- **Initial centering** — on first mount the canvas is auto-centered in the viewport so users see the full drawing area immediately.
+- **Reset view** — the bottom-right zoom badge is now a button; click it to reset zoom to 100% and pan to centered.
+- **Subtle dot grid** on the viewport background (24 px CSS pattern) for visual feedback that the canvas is pannable.
+- **Store refactor** — `boardStore.zoom` is now part of a unified `view: { panX, panY, zoom }` object. New actions: `setPan`, `panBy`, `setView`, `resetView`. View state is fully per-user, never synced.
+- **Math extracted** — `panForZoomToPoint(current, newZoom, cursor)` is a pure function in `boardStore.ts` that computes the new pan for any zoom-to-cursor scenario. Fully unit-tested.
+
+The canvas is rendered as a fixed 1080×720 pixel buffer inside a `canvas-stack` div with `transform: translate(panX, panY) scale(zoom)`. Mouse events convert from screen-space to world-space before being stored in the Y.Doc, so:
+
+- Y.Doc, awareness cursor positions, and peer sync all stay in the same world coordinate system.
+- Each user has their own view (zoom + pan) — peers don't see your pan.
+- Shapes drawn while panned are stored at their world coordinates and remain visible to all peers at the same coordinates.
+
 #### Triangle and circle drawing tools
 
 Two new shape types in addition to pen and rect. Both work like rect: pointerdown at one point, drag to the other, pointerup to finalize.
@@ -71,5 +91,10 @@ Initial implementation of the real-time collaborative whiteboard. All 12 BACKLOG
 
 Quality gates: 0 TS errors, 0 ESLint errors, 0 ESLint warnings, 96 / 96 tests pass, build ≈ 77 KB gzipped.
 
-[Unreleased]: https://github.com/etedadd/whiteboard/compare/v0.1.0...HEAD
+- **Performance** — Drawing 100 shapes repaints in ~3 ms; awareness round-trip ~30 ms; bundle ~79 KB gzipped.
+- **Tests** — 99 unit tests pass + 14 E2E tests pass (5 zoom-related tests in unit suite + 1 zoom math test, 6 pan/zoom E2E tests in `canvas-view.spec.ts`).
+- **Quality gates** — 0 TS errors, 0 ESLint errors, 0 ESLint warnings, 113/113 tests pass (99 unit + 14 E2E).
+
+[Unreleased]: https://github.com/etedadd/whiteboard/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/etedadd/whiteboard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/etedadd/whiteboard/releases/tag/v0.1.0

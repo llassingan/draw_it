@@ -20,3 +20,21 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+@layer components {
+  .board-viewport {
+    background-color: #f8f9fa;
+    background-image:
+      radial-gradient(circle, rgba(33, 37, 41, 0.12) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .canvas-fill {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+}

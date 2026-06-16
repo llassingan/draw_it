@@ -1,9 +1,20 @@
-import { isShape, type Point, type Shape } from '@whiteboard/shared';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  ZOOM_MAX,
+  ZOOM_MIN,
+  isShape,
+  type Point,
+  type Shape,
+} from '@whiteboard/shared';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useAwareness } from '../../hooks/useAwareness';
 import { useYDoc } from '../../hooks/useYDoc';
-import { useBoardStore } from '../../store/boardStore';
+import { useBoardStore, panForZoomToPoint, type View } from '../../store/boardStore';
 import Canvas from '../Canvas/Canvas';
 import { startCircle, updateCircle } from '../Canvas/drawCircle';
 import { startPenStroke, extendPenStroke } from '../Canvas/drawPen';
@@ -26,18 +37,38 @@ type ActiveShape =
   | { kind: 'circle'; id: string }
   | null;
 
+interface PanState {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startPanX: number;
+  startPanY: number;
+}
+
+const VIEWPORT_CURSOR_BY_MODE: Record<'drawing' | 'pan-ready' | 'panning', string> = {
+  drawing: 'crosshair',
+  'pan-ready': 'grab',
+  panning: 'grabbing',
+};
+
 export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   const { shapes, provider, isReady, isConnected } = useYDoc(roomId, wsUrl);
   const { users, setCursor, setTool, localUserId } = useAwareness(provider);
   const tool = useBoardStore((s) => s.tool);
   const color = useBoardStore((s) => s.color);
   const strokeWidth = useBoardStore((s) => s.strokeWidth);
-  const zoom = useBoardStore((s) => s.zoom);
-  const setZoom = useBoardStore((s) => s.setZoom);
+  const view = useBoardStore((s) => s.view);
+  const setView = useBoardStore((s) => s.setView);
+  const setPan = useBoardStore((s) => s.setPan);
+  const resetView = useBoardStore((s) => s.resetView);
   const boardSetTool = useBoardStore((s) => s.setTool);
 
   const [localShapes, setLocalShapes] = useState<Shape[]>([]);
   const [active, setActive] = useState<ActiveShape>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [isSpaceDown, setIsSpaceDown] = useState(false);
+  const panRef = useRef<PanState | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (shapes === null) return;
@@ -65,9 +96,41 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
     setTool(tool);
   }, [tool, boardSetTool, setTool, localUserId, provider]);
 
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null): boolean => {
+      if (target === null) return false;
+      const el = target as HTMLElement;
+      const tag = el.tagName;
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        el.isContentEditable === true
+      );
+    };
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.code !== 'Space') return;
+      if (e.repeat) return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      setIsSpaceDown(true);
+    };
+    const onKeyUp = (e: KeyboardEvent): void => {
+      if (e.code !== 'Space') return;
+      setIsSpaceDown(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
   const handlePointerDown = useCallback(
     (point: Point): void => {
       if (shapes === null || localUserId === null) return;
+      if (tool === 'pan') return; // pan is handled by the viewport, not the canvas
       if (tool === 'pen') {
         const stroke = startPenStroke(shapes, localUserId, color, point, color, strokeWidth);
         setActive({ kind: 'pen', id: stroke.id });
@@ -124,29 +187,120 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
       event.preventDefault();
       const direction = event.deltaY < 0 ? 1 : -1;
       const factor = 1 + direction * 0.1;
-      setZoom(zoom * factor);
+      const { view: current } = useBoardStore.getState();
+      const oldZoom = current.zoom;
+      const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, oldZoom * factor));
+      if (newZoom === oldZoom) return;
+      const wrapper = viewportRef.current;
+      if (wrapper === null) {
+        setView({ zoom: newZoom });
+        return;
+      }
+      const rect = wrapper.getBoundingClientRect();
+      const cursor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const nextPan = panForZoomToPoint(current, newZoom, cursor);
+      setView({ panX: nextPan.panX, panY: nextPan.panY, zoom: newZoom });
     },
-    [setZoom, zoom],
+    [setView],
   );
+
+  const handleViewportPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>): void => {
+      const wantPan = tool === 'pan' || isSpaceDown || event.button === 1;
+      if (!wantPan) return;
+      event.preventDefault();
+      const { view: current } = useBoardStore.getState();
+      panRef.current = {
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startPanX: current.panX,
+        startPanY: current.panY,
+      };
+      setIsPanning(true);
+      const targetEl = event.target as Element | null;
+      if (targetEl !== null && typeof targetEl.setPointerCapture === 'function') {
+        try {
+          targetEl.setPointerCapture(event.pointerId);
+        } catch {
+          // Some elements don't support pointer capture; safe to ignore.
+        }
+      }
+    },
+    [tool, isSpaceDown],
+  );
+
+  const handleViewportPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>): void => {
+      const pan = panRef.current;
+      if (pan === null) return;
+      if (event.pointerId !== pan.pointerId) return;
+      const dx = event.clientX - pan.startClientX;
+      const dy = event.clientY - pan.startClientY;
+      setPan(pan.startPanX + dx, pan.startPanY + dy);
+    },
+    [setPan],
+  );
+
+  const handleViewportPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>): void => {
+      const pan = panRef.current;
+      if (pan === null) return;
+      if (event.pointerId !== pan.pointerId) return;
+      panRef.current = null;
+      setIsPanning(false);
+      const targetEl = event.target as Element | null;
+      if (targetEl !== null && typeof targetEl.releasePointerCapture === 'function') {
+        try {
+          targetEl.releasePointerCapture(event.pointerId);
+        } catch {
+          // Safe to ignore.
+        }
+      }
+    },
+    [],
+  );
+
+  const isPanReady = tool === 'pan' || isSpaceDown;
+  const viewportMode: 'drawing' | 'pan-ready' | 'panning' = isPanning
+    ? 'panning'
+    : isPanReady
+      ? 'pan-ready'
+      : 'drawing';
+  const canvasCursor = VIEWPORT_CURSOR_BY_MODE[viewportMode];
 
   return (
     <div className="flex h-full w-full flex-col bg-board-surface">
       <div
-        className="relative flex flex-1 items-center justify-center overflow-hidden"
+        ref={viewportRef}
+        className="board-viewport relative flex-1 overflow-hidden"
+        data-testid="board-viewport"
+        data-pan-mode={viewportMode}
         onWheel={handleWheel}
+        onPointerDown={handleViewportPointerDown}
+        onPointerMove={handleViewportPointerMove}
+        onPointerUp={handleViewportPointerUp}
+        onPointerCancel={handleViewportPointerUp}
       >
         <div
-          className="relative"
+          className="absolute inset-0"
           data-testid="canvas-stack"
-          data-zoom={zoom}
+          data-zoom={view.zoom}
+          data-pan-x={view.panX}
+          data-pan-y={view.panY}
           style={{
-            transform: `scale(${zoom})`,
-            transformOrigin: 'center center',
+            transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
+            transformOrigin: '0 0',
+            willChange: 'transform',
           }}
         >
           <Canvas
             shapes={localShapes}
             tool={tool}
+            panX={view.panX}
+            panY={view.panY}
+            zoom={view.zoom}
+            cursor={canvasCursor}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -158,7 +312,7 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
         <UserList users={users} localUserId={localUserId} />
         <Toolbar />
         <ConnectionBadge isConnected={isConnected} isReady={isReady} />
-        <ZoomBadge zoom={zoom} />
+        <ZoomBadge view={view} onReset={resetView} />
       </div>
     </div>
   );
@@ -180,13 +334,16 @@ function ConnectionBadge({ isConnected, isReady }: { isConnected: boolean; isRea
   );
 }
 
-function ZoomBadge({ zoom }: { zoom: number }): JSX.Element {
+function ZoomBadge({ view, onReset }: { view: View; onReset: () => void }): JSX.Element {
   return (
-    <div
-      className="pointer-events-none absolute bottom-3 right-4 z-40 rounded-full bg-gray-800/85 px-3 py-1 text-xs font-medium text-white shadow"
+    <button
+      type="button"
+      onClick={onReset}
+      title="Reset view (zoom + pan)"
       data-testid="zoom-badge"
+      className="pointer-events-auto absolute bottom-3 right-4 z-40 rounded-full bg-gray-800/85 px-3 py-1 text-xs font-medium text-white shadow transition hover:bg-gray-700"
     >
-      {Math.round(zoom * 100)}%
-    </div>
+      {Math.round(view.zoom * 100)}%
+    </button>
   );
 }

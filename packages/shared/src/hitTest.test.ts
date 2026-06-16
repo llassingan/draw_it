@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { hitTest, hitTestAll } from './hitTest';
-import type { CircleShape, PenStroke, Point, RectShape, TriangleShape } from './shapes';
+import type { CircleShape, PenStroke, Point, RectShape, Shape, TriangleShape } from './shapes';
 
 const point: Point = { x: 50, y: 50 };
 
@@ -170,5 +170,20 @@ describe('hitTestAll', () => {
 
   it('skips undefined entries safely', () => {
     expect(hitTestAll({ x: 0, y: 0 }, [makePen({ points: [0, 0, 10, 10] })])).toEqual([0]);
+  });
+});
+
+describe('hitTest defensive branches', () => {
+  it('returns false for a shape with an unknown type tag', () => {
+    const bogus = { ...makePen(), type: 'mystery' } as unknown as Shape;
+    expect(hitTest(point, bogus)).toBe(false);
+  });
+});
+
+describe('penHitTest degenerate segments', () => {
+  it('handles a pen stroke with two identical points (zero-length segment)', () => {
+    const stroke = makePen({ points: [50, 50, 50, 50] });
+    expect(hitTest({ x: 50, y: 50 }, stroke)).toBe(true);
+    expect(hitTest({ x: 60, y: 50 }, stroke)).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 export type ShapeId = string;
 
-export type Tool = 'pen' | 'rect' | 'triangle' | 'circle' | 'eraser' | 'select';
+export type Tool = 'pen' | 'rect' | 'triangle' | 'circle' | 'eraser' | 'select' | 'pan';
 
 export interface Point {
   readonly x: number;
@@ -76,7 +76,8 @@ export const isTool = (value: unknown): value is Tool => {
     value === 'triangle' ||
     value === 'circle' ||
     value === 'eraser' ||
-    value === 'select'
+    value === 'select' ||
+    value === 'pan'
   );
 };
 

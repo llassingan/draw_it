@@ -8,12 +8,13 @@ const TOOL_BUTTONS: ReadonlyArray<{ tool: Tool; label: string; icon: string; tes
   { tool: 'triangle', label: 'Triangle', icon: '△', testId: 'tool-triangle' },
   { tool: 'circle', label: 'Circle', icon: '○', testId: 'tool-circle' },
   { tool: 'eraser', label: 'Eraser', icon: '⌫', testId: 'tool-eraser' },
+  { tool: 'pan', label: 'Pan (or hold Space)', icon: '✋', testId: 'tool-pan' },
 ];
 
 export default function Toolbar(): JSX.Element {
   const tool = useBoardStore((s) => s.tool);
   const color = useBoardStore((s) => s.color);
-  const zoom = useBoardStore((s) => s.zoom);
+  const zoom = useBoardStore((s) => s.view.zoom);
   const setTool = useBoardStore((s) => s.setTool);
   const setColor = useBoardStore((s) => s.setColor);
   const zoomIn = useBoardStore((s) => s.zoomIn);

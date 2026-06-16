@@ -99,7 +99,7 @@ See [docs/architecture.md](docs/architecture.md) for the data flow and CRDT topo
 ## Data model
 
 ```ts
-type Shape = PenStroke | RectShape;
+type Shape = PenStroke | RectShape | TriangleShape | CircleShape;
 
 interface PenStroke {
   id: ShapeId;          // ULID
@@ -123,6 +123,31 @@ interface RectShape {
   authorColor: string;
   createdAt: number;
 }
+
+interface TriangleShape {
+  id: ShapeId;
+  type: 'triangle';
+  color: string;
+  width: number;
+  a: Point;             // base vertex 1
+  b: Point;             // base vertex 2
+  c: Point;             // apex (always above the base)
+  authorId: string;
+  authorColor: string;
+  createdAt: number;
+}
+
+interface CircleShape {
+  id: ShapeId;
+  type: 'circle';
+  color: string;
+  width: number;
+  center: Point;
+  radius: number;
+  authorId: string;
+  authorColor: string;
+  createdAt: number;
+}
 ```
 
 The Y.Doc structure is:
@@ -139,6 +164,7 @@ There is no local mirror of shapes in React state. The Y.Array is the only sourc
 - **Awareness cursor** is throttled to 30 fps (33 ms) and skipped if the cursor moved < 2 px.
 - **Canvas redraws** repaint the full canvas on every Y.Array change. With < 500 shapes this stays under 16 ms on a modern laptop.
 - The React tree is **not** re-rendered on every shape change — the canvas is driven via a ref + a manual `useEffect` that redraws on array mutation.
+- **Zoom** is a CSS `transform: scale(zoom)` on the canvas-stack wrapper. The Y.Doc is never touched, so peers don't see any zoom change. Range 10 % – 500 %; Ctrl/Cmd + wheel zooms, plain wheel does not.
 
 ## Concurrency
 
@@ -153,10 +179,10 @@ There is no local mirror of shapes in React state. The Y.Array is the only sourc
 | --------------------- | ------------- | ------------------------------- |
 | TypeScript            | `tsc --noEmit`| 0 errors                        |
 | ESLint                | `eslint .`    | 0 errors, 0 warnings            |
-| Unit tests (shared)   | `vitest run`  | 33/33 pass, ≥ 80% line coverage |
-| Unit tests (web)      | `vitest run`  | 55/55 pass, ≥ 80% line coverage |
-| E2E tests             | `playwright`  | 6/6 pass                        |
-| Build                 | `vite build`  | bundle < 300 KB gzipped (~77 KB)|
+| Unit tests (shared)   | `vitest run`  | 52/52 pass, ≥ 80% line coverage |
+| Unit tests (web)      | `vitest run`  | 82/82 pass (2 skipped on happy-dom wheel), ≥ 80% line coverage |
+| E2E tests             | `playwright`  | 7/7 pass                        |
+| Build                 | `vite build`  | bundle < 300 KB gzipped (~79 KB)|
 
 ## Testing
 

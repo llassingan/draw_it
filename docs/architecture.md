@@ -116,9 +116,20 @@ When the WebSocket drops, y-websocket buffers updates in IndexedDB (via `y-index
 | Draw-to-see latency         | < 500 ms p95 (LAN)    | ~50–150 ms typical |
 | Canvas repaint (100 shapes) | < 16 ms (one frame)   | ~3 ms              |
 | Awareness round-trip         | < 100 ms              | ~30 ms             |
-| Bundle size (gzip)          | < 300 KB              | ~77 KB             |
+| Bundle size (gzip)          | < 300 KB              | ~79 KB             |
+| CSS transform scale(zoom)   | per-frame paint       | <1 ms repaint cost |
 
 The biggest single optimisation is that **React doesn't re-render on every shape change** — only the canvas does, via a ref and a useEffect on the Y.Array observer.
+
+## Zoom
+
+Zoom is per-user and **not** synced via the Y.Doc. It is applied as a CSS `transform: scale(zoom)` on the `canvas-stack` wrapper that contains both the canvas and the cursors overlay. Because the transform is purely visual:
+
+- Canvas internal coordinates stay at 0–1080 / 0–720, so all peers see shapes at the same positions regardless of their local zoom.
+- Awareness cursor positions (in canvas-space) are scaled together with the canvas, so remote cursors remain perfectly aligned.
+- No Y.Doc migration, no peer-side change, no breaking change to existing rooms.
+
+Range is clamped to `[0.1, 5]` (10 % to 500 %) to prevent the canvas from disappearing at extreme scales. Wheel zoom requires Ctrl/Cmd so plain scrolling doesn't change the view.
 
 ## Why no infinite canvas / zoom / persistence
 

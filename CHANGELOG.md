@@ -5,6 +5,29 @@ Format: [Semantic Versioning](https://semver.org/) + [Keep a Changelog](https://
 
 ## [Unreleased]
 
+### Added
+
+#### Triangle and circle drawing tools
+
+Two new shape types in addition to pen and rect. Both work like rect: pointerdown at one point, drag to the other, pointerup to finalize.
+
+- **Triangle** — equilateral with base from start to end; the third vertex (apex) is always placed above the base so orientation matches the user's mental model regardless of drag direction. Stored as `{ a, b, c }` vertex points.
+- **Circle** — center-radius: start is the center, drag updates the radius as `hypot(dx, dy)`. Stored as `{ center, radius }`.
+
+Both follow the same in-place delete + insert pattern inside a `Y.Doc.transact()` as `drawRect`, so concurrent edits commute. Hit-test logic added in the shared package:
+- Triangle: point-in-triangle via cross-product sign test, plus edge distance fallback (4px tolerance).
+- Circle: distance from center ≤ radius + tolerance.
+
+#### Zoomable canvas
+
+- `boardStore.zoom` state with `setZoom`, `zoomIn`, `zoomOut`, `resetZoom` actions.
+- Range clamped to `[ZOOM_MIN = 0.1, ZOOM_MAX = 5]`; step `ZOOM_STEP = 0.1`; default `ZOOM_DEFAULT = 1`.
+- Toolbar zoom controls: `−` / `100%` (click to reset) / `+` buttons.
+- Ctrl/Cmd + mouse wheel zooms toward the cursor (scroll up = zoom in, scroll down = zoom out). Plain wheel events are ignored.
+- Bottom-right `ZoomBadge` shows the current percentage.
+- Implementation: CSS `transform: scale(zoom)` on the `canvas-stack` wrapper. Canvas internal coordinates (0–1080, 0–720) are unchanged — Y.Doc, awareness cursor positions, and peer sync all stay in the same coordinate system regardless of local zoom.
+- Per-user, not shared.
+
 ### Fixed
 
 #### Remote cursor coordinate alignment

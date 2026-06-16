@@ -35,7 +35,6 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   const zoom = useBoardStore((s) => s.zoom);
   const setZoom = useBoardStore((s) => s.setZoom);
   const boardSetTool = useBoardStore((s) => s.setTool);
-  const boardSetColor = useBoardStore((s) => s.setColor);
 
   const [localShapes, setLocalShapes] = useState<Shape[]>([]);
   const [active, setActive] = useState<ActiveShape>(null);
@@ -65,15 +64,6 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
     boardSetTool(tool);
     setTool(tool);
   }, [tool, boardSetTool, setTool, localUserId, provider]);
-
-  useEffect(() => {
-    if (localUserId === null) return;
-    const authorColor = localShapes.find((s) => s.authorId === localUserId)?.authorColor;
-    if (authorColor === undefined) return;
-    if (authorColor !== color) {
-      boardSetColor(authorColor);
-    }
-  }, [localShapes, localUserId, color, boardSetColor]);
 
   const handlePointerDown = useCallback(
     (point: Point): void => {

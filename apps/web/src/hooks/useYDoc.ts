@@ -1,8 +1,8 @@
+import { DEFAULT_ROOM_ID, type Shape } from '@whiteboard/shared';
 import { useEffect, useState } from 'react';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 
-import { DEFAULT_ROOM_ID, type Shape } from '@whiteboard/shared';
 export interface UseYDocResult {
   ydoc: Y.Doc | null;
   shapes: Y.Array<Shape> | null;

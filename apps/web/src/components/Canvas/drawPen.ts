@@ -1,3 +1,18 @@
+/**
+ * Pen tool — creates and extends PenStroke shapes in the Yjs Y.Array.
+ *
+ * `startPenStroke` creates a new stroke with a single point and pushes
+ * it to the Y.Array (Yjs syncs this to all peers).
+ *
+ * `extendPenStroke` finds the existing stroke by ID, appends the new
+ * point, then replaces the element inside a Yjs transaction via
+ * `delete(idx, 1)` + `insert(idx, [updated])`. This replace pattern is
+ * required because Yjs cannot mutate individual array elements — you must
+ * delete and re-insert with the updated value.
+ *
+ * Duplicate points (same as the last point) are skipped to avoid
+ * unnecessary Yjs updates and wasted CRDT operations.
+ */
 
 import { generateShapeId, isPenStroke } from '@whiteboard/shared';
 import type { PenStroke, Point, Shape } from '@whiteboard/shared';
@@ -21,6 +36,7 @@ export function startPenStroke(
     width,
     points: [point.x, point.y],
   };
+  // Push the new stroke to the shared Y.Array — synced to all peers.
   shapes.push([stroke]);
   return stroke;
 }
@@ -35,6 +51,7 @@ export function extendPenStroke(
   if (idx === -1) return;
   const stroke = arr[idx];
   if (stroke === undefined || !isPenStroke(stroke)) return;
+  // Skip if the new point is identical to the last point in the stroke.
   const lastX = stroke.points[stroke.points.length - 2];
   const lastY = stroke.points[stroke.points.length - 1];
   if (lastX === point.x && lastY === point.y) return;
@@ -42,6 +59,8 @@ export function extendPenStroke(
     ...stroke,
     points: [...stroke.points, point.x, point.y],
   };
+  // Yjs replace pattern: delete old element, insert updated one in the
+  // same position, all within a single transaction.
   shapes.doc?.transact(() => {
     shapes.delete(idx, 1);
     shapes.insert(idx, [updated]);

@@ -1,3 +1,12 @@
+/**
+ * Circle tool — creates and updates CircleShape in the Yjs Y.Array.
+ *
+ * `startCircle` creates a circle with radius=0 at the pointer center.
+ *
+ * `updateCircle` computes the radius as the Euclidean distance from the
+ * center to the drag point using `Math.hypot(dx, dy)`, then replaces the
+ * shape inside a Yjs transaction.
+ */
 import { generateShapeId, isCircleShape, type Point, type Shape, type CircleShape } from '@whiteboard/shared';
 import type * as Y from 'yjs';
 
@@ -37,6 +46,7 @@ export function updateCircle(
   if (current === undefined || !isCircleShape(current)) return;
   const dx = end.x - current.center.x;
   const dy = end.y - current.center.y;
+  // Euclidean distance from center to drag point = radius.
   const updated: CircleShape = {
     ...current,
     radius: Math.hypot(dx, dy),

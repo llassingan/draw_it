@@ -1,3 +1,14 @@
+/**
+ * Triangle tool — creates and updates TriangleShape in the Yjs Y.Array.
+ *
+ * `startTriangle` creates a degenerate triangle (all 3 vertices at the
+ * same pointer-down point).
+ *
+ * `updateTriangle` sets vertex `b` to the drag end and computes vertex
+ * `c` (the apex) via `computeApex`, which creates an equilateral triangle
+ * where the apex sits above the base midpoint at `(baseLength * √3) / 2`.
+ * The shape is replaced inside a Yjs transaction.
+ */
 import { generateShapeId, isTriangleShape, type Point, type Shape, type TriangleShape } from '@whiteboard/shared';
 import type * as Y from 'yjs';
 
@@ -49,6 +60,8 @@ export function updateTriangle(
   });
 }
 
+// Computes the apex of an equilateral triangle given base endpoints.
+// The apex is placed above the midpoint at height = (baseLength * √3) / 2.
 function computeApex(start: Point, end: Point): Point {
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;

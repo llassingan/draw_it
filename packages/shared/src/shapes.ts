@@ -1,3 +1,19 @@
+/**
+ * Shape type system for the collaborative whiteboard.
+ *
+ * All shapes are synced via Yjs CRDT over WebSocket. The `type` field acts as
+ * a discriminated union tag, enabling TypeScript to narrow `Shape` to a
+ * specific variant after a type-guard check (e.g. `isPenStroke`).
+ *
+ * ## Why `points` is a flat array
+ *
+ * `PenStroke.points` stores coordinates as `[x0, y0, x1, y1, ...]` instead of
+ * `[{x, y}, ...]`. Flat arrays are more efficient for Yjs CRDT syncing
+ * because each element is a primitive that Yjs can diff individually. Nested
+ * objects require Yjs to deep-compare and patch sub-trees, which adds overhead
+ * on every keystroke of a pen stroke.
+ */
+
 export type ShapeId = string;
 
 export type Tool = 'pen' | 'rect' | 'triangle' | 'circle' | 'eraser' | 'select' | 'pan';
@@ -7,6 +23,7 @@ export interface Point {
   readonly y: number;
 }
 
+/** Fields common to every shape. */
 export interface BaseShape {
   id: ShapeId;
   authorId: string;
@@ -14,11 +31,12 @@ export interface BaseShape {
   createdAt: number;
 }
 
+/** Freehand drawing stored as a flat coordinate array for Yjs CRDT efficiency. */
 export interface PenStroke extends BaseShape {
   type: 'pen';
   color: string;
   width: number;
-  points: number[];
+  points: number[]; // flat [x0, y0, x1, y1, ...] — see module header
 }
 
 export interface RectShape extends BaseShape {
@@ -29,6 +47,10 @@ export interface RectShape extends BaseShape {
   end: Point;
 }
 
+/**
+ * `a` and `b` are the two base vertices; `c` is the apex (always above the
+ * base in the coordinate system used at creation time).
+ */
 export interface TriangleShape extends BaseShape {
   type: 'triangle';
   color: string;
@@ -46,10 +68,19 @@ export interface CircleShape extends BaseShape {
   radius: number;
 }
 
+/**
+ * Discriminated union of all shape types.
+ * The `type` field is the discriminator — checking it narrows the union
+ * to the concrete shape interface.
+ */
 export type Shape = PenStroke | RectShape | TriangleShape | CircleShape;
 
+/** Extracts the literal type of the discriminator field. */
 export type ShapeType = Shape['type'];
 
+// ---- Type guards: narrow `Shape` to a concrete variant at runtime ----
+
+/** Returns `true` if the shape is a freehand pen stroke. */
 export const isPenStroke = (shape: Shape): shape is PenStroke =>
   shape.type === 'pen';
 
@@ -62,6 +93,11 @@ export const isTriangleShape = (shape: Shape): shape is TriangleShape =>
 export const isCircleShape = (shape: Shape): shape is CircleShape =>
   shape.type === 'circle';
 
+/**
+ * Lightweight duck-type check: returns `true` if `value` looks like a `Shape`
+ * based solely on the `type` discriminator. Does NOT validate nested fields.
+ * For full validation of untrusted data, use `validateShape` instead.
+ */
 export const isShape = (value: unknown): value is Shape => {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
@@ -69,6 +105,7 @@ export const isShape = (value: unknown): value is Shape => {
   return t === 'pen' || t === 'rect' || t === 'triangle' || t === 'circle';
 };
 
+/** Returns `true` if `value` is a recognized tool identifier. */
 export const isTool = (value: unknown): value is Tool => {
   return (
     value === 'pen' ||
@@ -80,6 +117,8 @@ export const isTool = (value: unknown): value is Tool => {
     value === 'pan'
   );
 };
+
+// ---- Internal validation helpers ----
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -95,6 +134,7 @@ function isPoint(value: unknown): value is Point {
   return isFiniteNumber(p['x']) && isFiniteNumber(p['y']);
 }
 
+/** Validates the four fields that every shape must carry. */
 function isBaseShape(value: object): value is BaseShape {
   const base = value as Record<string, unknown>;
   return (
@@ -105,6 +145,8 @@ function isBaseShape(value: object): value is BaseShape {
   );
 }
 
+// ---- Per-shape validators: full runtime validation of all fields ----
+
 function validatePenStroke(value: object): PenStroke | null {
   const candidate = value as Record<string, unknown>;
   if (!isBaseShape(candidate)) return null;
@@ -113,6 +155,7 @@ function validatePenStroke(value: object): PenStroke | null {
   if (!isFiniteNumber(candidate['width']) || candidate['width'] <= 0) return null;
   if (!Array.isArray(candidate['points'])) return null;
   const points = candidate['points'];
+  // Must have at least one (x,y) pair and an even number of entries.
   if (points.length < 2 || points.length % 2 !== 0) return null;
   for (const n of points) {
     if (!isFiniteNumber(n)) return null;
@@ -193,6 +236,14 @@ function validateCircleShape(value: object): CircleShape | null {
   };
 }
 
+/**
+ * Full runtime validation for data arriving from the network (Yjs sync).
+ *
+ * Unlike `isShape` (quick duck-type check), this validates every field
+ * recursively and returns a fully typed `Shape` or `null`. Use when consuming
+ * shapes that may have been corrupted during serialization or constructed by
+ * an untrusted client.
+ */
 export function validateShape(input: unknown): Shape | null {
   if (typeof input !== 'object' || input === null) return null;
   const value = input as Record<string, unknown>;
@@ -203,6 +254,12 @@ export function validateShape(input: unknown): Shape | null {
   return null;
 }
 
+/**
+ * Generates a unique shape identifier.
+ *
+ * Prefers `crypto.randomUUID()` when available (modern browsers, Node 19+),
+ * falling back to a base-36 timestamp + random suffix for older runtimes.
+ */
 export function generateShapeId(): ShapeId {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
     return globalThis.crypto.randomUUID();

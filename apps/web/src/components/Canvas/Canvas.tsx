@@ -1,3 +1,16 @@
+/**
+ * Canvas — the main rendering surface for the collaborative whiteboard.
+ *
+ * This component fills its parent viewport with a <canvas> element and
+ * handles all pointer events for drawing. It uses a ResizeObserver to
+ * keep pixel dimensions in sync with the container, and repaints the
+ * full canvas (clear + redraw all shapes) whenever the shape list,
+ * pan/zoom, or container size changes.
+ *
+ * Pointer events are converted from screen/client coordinates to world
+ * coordinates via `toCanvasPoint` (dividing by zoom) and forwarded to
+ * parent hook callbacks for shape creation/update.
+ */
 import { type Point, type Shape, type Tool } from '@whiteboard/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -40,6 +53,8 @@ export default function Canvas({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const lastPointRef = useRef<Point | null>(null);
 
+  // ResizeObserver keeps the <canvas> pixel dimensions in sync with the
+  // container's CSS size (including on orientation change).
   useEffect(() => {
     const container = containerRef.current;
     if (container === null) return;
@@ -68,6 +83,8 @@ export default function Canvas({
     };
   }, []);
 
+  // Repaint the full canvas on every change: clear, apply pan+zoom,
+  // then redraw all shapes in the Yjs shapes array.
   useEffect(() => {
     if (size.width === 0 || size.height === 0) return;
     const canvas = canvasRef.current;
@@ -85,6 +102,8 @@ export default function Canvas({
     ctx.restore();
   }, [shapes, panX, panY, zoom, size.height, size.width]);
 
+  // Converts screen/client coordinates to world coordinates by dividing
+  // by the current zoom level (undoing the ctx.scale transform).
   const toCanvasPoint = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>): Point => {
       const canvas = canvasRef.current;
@@ -99,12 +118,14 @@ export default function Canvas({
     [zoom],
   );
 
+  // onPointerDown starts a new shape (pen stroke, rect, triangle, circle).
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     const point = toCanvasPoint(event);
     lastPointRef.current = point;
     onPointerDown?.(point);
   };
 
+  // onPointerMove continues/extend the current shape (or updates cursor for others).
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     const point = toCanvasPoint(event);
     lastPointRef.current = point;
@@ -112,12 +133,14 @@ export default function Canvas({
     onCursorMove?.(point);
   };
 
+  // onPointerUp finalizes the current shape.
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     const point = toCanvasPoint(event);
     lastPointRef.current = null;
     onPointerUp?.(point);
   };
 
+  // onPointerLeave also finalizes (user dragged off the canvas).
   const handlePointerLeave = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     const point = toCanvasPoint(event);
     lastPointRef.current = null;

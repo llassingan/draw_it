@@ -1,3 +1,14 @@
+/**
+ * Canvas renderer — draws all shapes from scratch on every repaint.
+ *
+ * `clearCanvas` fills the full canvas with white before redraw.
+ * `renderShapes` iterates the shapes array, sets `lineCap`/`lineJoin` to
+ * 'round' for smooth strokes, and dispatches by shape type.
+ * Each `draw*` function uses the standard Canvas 2D API.
+ *
+ * Note: `drawCircle` special-cases `radius <= 0` to avoid browser console
+ * warnings for negative radii passed to `ctx.arc`.
+ */
 import { CANVAS_BACKGROUND, type Shape } from '@whiteboard/shared';
 
 export function clearCanvas(
@@ -13,6 +24,7 @@ export function renderShapes(
   ctx: CanvasRenderingContext2D,
   shapes: readonly Shape[],
 ): void {
+  // Round caps and joins produce smooth, connected stroke segments.
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (const shape of shapes) {
@@ -33,6 +45,7 @@ export function renderShapes(
   }
 }
 
+// Draws a connected polyline from a flat points array [x0,y0,x1,y1,...].
 function drawPenStroke(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'pen' }>): void {
   if (shape.points.length < 2) return;
   const firstX = shape.points[0];
@@ -51,6 +64,8 @@ function drawPenStroke(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { ty
   ctx.stroke();
 }
 
+// Normalizes the rect to top-left origin + positive width/height before
+// stroking, since the user may have dragged in any direction.
 function drawRect(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'rect' }>): void {
   const x = Math.min(shape.start.x, shape.end.x);
   const y = Math.min(shape.start.y, shape.end.y);
@@ -61,6 +76,7 @@ function drawRect(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: '
   ctx.strokeRect(x, y, w, h);
 }
 
+// Draws a closed triangle path from 3 vertices (a, b, c).
 function drawTriangle(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'triangle' }>): void {
   ctx.strokeStyle = shape.color;
   ctx.lineWidth = shape.width;
@@ -72,6 +88,8 @@ function drawTriangle(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { typ
   ctx.stroke();
 }
 
+// Draws a circle via ctx.arc. When radius <= 0, draws a zero-radius arc
+// (a dot at the center) to avoid canvas API warnings for negative radii.
 function drawCircle(ctx: CanvasRenderingContext2D, shape: Extract<Shape, { type: 'circle' }>): void {
   if (shape.radius <= 0) {
     ctx.strokeStyle = shape.color;

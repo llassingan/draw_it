@@ -1,3 +1,12 @@
+/**
+ * Hit-testing helpers for the eraser tool.
+ *
+ * When the user clicks or drags with the eraser, we need to determine which
+ * shape(s) the pointer is over. This module provides per-shape hit-test
+ * functions and a batch variant (`hitTestAll`) that returns all matching
+ * shape indices.
+ */
+
 import {
   isCircleShape,
   isPenStroke,
@@ -7,8 +16,17 @@ import {
   type Shape,
 } from './shapes';
 
+/**
+ * Extra margin (in pixels) added to the hit area around every shape.
+ * Compensates for imprecise touch/click positioning so users don't need
+ * pixel-perfect aim to erase a stroke.
+ */
 export const HIT_TOLERANCE_PX = 4;
 
+/**
+ * Dispatches to the correct hit-test function based on the shape's
+ * discriminator (`shape.type`).
+ */
 export function hitTest(point: Point, shape: Shape): boolean {
   if (isPenStroke(shape)) {
     return penHitTest(point, shape.points, shape.width);
@@ -25,6 +43,10 @@ export function hitTest(point: Point, shape: Shape): boolean {
   return false;
 }
 
+/**
+ * Pen / freehand hit test: checks the point's distance to every line segment
+ * formed by consecutive pairs in the flat `points` array.
+ */
 function penHitTest(point: Point, points: number[], width: number): boolean {
   if (points.length < 2) return false;
   const radius = width / 2 + HIT_TOLERANCE_PX;
@@ -49,6 +71,10 @@ function penHitTest(point: Point, points: number[], width: number): boolean {
   return false;
 }
 
+/**
+ * Rectangle hit test: expands the bounding box by the stroke width + tolerance
+ * and checks if the point falls within.
+ */
 function rectHitTest(point: Point, start: Point, end: Point, width: number): boolean {
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
@@ -63,6 +89,11 @@ function rectHitTest(point: Point, start: Point, end: Point, width: number): boo
   );
 }
 
+/**
+ * Triangle hit test: first checks the filled interior (point-in-triangle
+ * via barycentric / sign-of-half-plane test), then falls back to checking
+ * distance to each of the three edges.
+ */
 function triangleHitTest(
   point: Point,
   a: Point,
@@ -82,6 +113,12 @@ function triangleHitTest(
   );
 }
 
+/**
+ * Tests whether point `p` lies inside the triangle formed by vertices a, b, c.
+ * Uses the half-plane / barycentric technique: computes the signed area
+ * (cross product) for each edge. If all signs are the same (or zero), the
+ * point is inside.
+ */
 function pointInTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
   const d1 = sign(p, a, b);
   const d2 = sign(p, b, c);
@@ -91,10 +128,15 @@ function pointInTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
   return !(hasNeg && hasPos);
 }
 
+/** Signed area / cross product: (p1 - p3) × (p2 - p3). */
 function sign(p1: Point, p2: Point, p3: Point): number {
   return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
 
+/**
+ * Circle hit test: checks radial distance from the center, expanded by the
+ * stroke width and tolerance.
+ */
 function circleHitTest(point: Point, center: Point, radius: number, width: number): boolean {
   const tolerance = width / 2 + HIT_TOLERANCE_PX;
   const dx = point.x - center.x;
@@ -102,12 +144,20 @@ function circleHitTest(point: Point, center: Point, radius: number, width: numbe
   return dx * dx + dy * dy <= (radius + tolerance) * (radius + tolerance);
 }
 
+/** Squared Euclidean distance between two points (a, b). */
 function distanceSquared(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
 }
 
+/**
+ * Squared distance from point P to the nearest point on line segment AB.
+ *
+ * Standard geometry: project P onto AB (clamped to [0, 1]), then measure
+ * distance to the projected point. Uses squared values throughout to avoid
+ * a `Math.sqrt` call in the hot path.
+ */
 function distancePointToSegmentSquared(
   px: number,
   py: number,
@@ -122,15 +172,23 @@ function distancePointToSegmentSquared(
   const apy = py - ay;
   const abLenSquared = abx * abx + aby * aby;
   if (abLenSquared === 0) {
-    return apx * apx + apy * apy;
+    return apx * apx + apy * apy; // A and B coincide — segment is a point
   }
-  let t = (apx * abx + apy * aby) / abLenSquared;
-  t = Math.max(0, Math.min(1, t));
-  const cx = ax + t * abx;
+  let t = (apx * abx + apy * aby) / abLenSquared; // projection parameter
+  t = Math.max(0, Math.min(1, t)); // clamp to segment
+  const cx = ax + t * abx; // closest point on segment
   const cy = ay + t * aby;
   return distanceSquared(px, py, cx, cy);
 }
 
+/**
+ * Returns the indices of all shapes that intersect the given point.
+ *
+ * Indices are returned in **z-order** (front to back): index 0 is the
+ * earliest-drawn (bottom) shape, and the last index is the most recently
+ * drawn (topmost) shape. This ordering is natural because the shapes array
+ * is append-only in draw order.
+ */
 export function hitTestAll(point: Point, shapes: readonly Shape[]): number[] {
   const matches: number[] = [];
   for (let i = 0; i < shapes.length; i += 1) {

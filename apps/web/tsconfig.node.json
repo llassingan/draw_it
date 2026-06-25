@@ -1,4 +1,13 @@
 {
+  // =========================================================================
+  // Separate TypeScript config for Node-side files (build tooling).
+  //
+  // Vite config, Vitest config, and Playwright config run in Node.js,
+  // not the browser. This config limits the lib to ES2022, enables
+  // node types, and uses composite + emitDeclarationOnly so the
+  // main tsconfig can reference it via project references without
+  // emitting JS from the app sources.
+  // =========================================================================
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,

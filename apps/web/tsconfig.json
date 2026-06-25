@@ -1,4 +1,16 @@
 {
+  // =========================================================================
+  // TypeScript configuration for the React web app (browser target).
+  //
+  // Extends the monorepo's strict base config and adds:
+  // - DOM + DOM.Iterable libs for browser APIs
+  // - react-jsx transform (no need to import React in every file)
+  // - @whiteboard/shared path alias → packages/shared/src/index.ts
+  //
+  // Excludes e2e test files (they have their own ESLint tsconfig).
+  // References tsconfig.node.json so tsc --build can handle both
+  // browser and Node targets in one pass.
+  // =========================================================================
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

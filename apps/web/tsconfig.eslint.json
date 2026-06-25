@@ -1,4 +1,11 @@
 {
+  // =========================================================================
+  // TypeScript config used exclusively by ESLint for type-aware linting.
+  //
+  // Extends the main tsconfig but widens the include to cover e2e test
+  // files. This keeps the main tsconfig focused on src/ for compilation
+  // while still letting ESLint type-check the e2e tests.
+  // =========================================================================
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true

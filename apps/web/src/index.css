@@ -1,3 +1,9 @@
+/* Global stylesheet for the collaborative whiteboard web app.
+ *
+ * @tailwind directives pull in Tailwind's base / components / utilities layers.
+ * @layer base resets html, body, and #root to full height.
+ * .board-viewport creates a dot-grid background (24px spacing, radial gradient).
+ * .canvas-fill makes the canvas fill its container absolutely. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

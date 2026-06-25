@@ -1,3 +1,13 @@
+/**
+ * Zustand store for **local-only UI state** — NOT synced via Yjs.
+ *
+ * Stores tool selection, color, stroke width, and the per-user viewport state
+ * (pan position + zoom level). Each client has its own independent store instance;
+ * peers do NOT see each other's pan/zoom.
+ *
+ * The Y.Doc is the source of truth for shapes and presence (awareness); this store
+ * only holds transient UI flags that are meaningless to other users.
+ */
 import {
   DEFAULT_COLOR,
   ZOOM_DEFAULT,
@@ -8,6 +18,10 @@ import {
 } from '@whiteboard/shared';
 import { create } from 'zustand';
 
+/**
+ * Clamps a zoom value to the allowed range [ZOOM_MIN, ZOOM_MAX].
+ * Guards against NaN and infinities — returns ZOOM_DEFAULT for any degenerate input.
+ */
 const clampZoom = (value: number): number => {
   if (Number.isNaN(value) || !Number.isFinite(value)) return ZOOM_DEFAULT;
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
@@ -24,6 +38,14 @@ export interface CursorScreenPoint {
   readonly y: number;
 }
 
+/**
+ * Zoom-toward-cursor: adjusts pan so the point under the cursor stays fixed
+ * while the viewport scales around it.
+ *
+ *   1. Convert cursor screen coords → world coords at the old zoom
+ *   2. Map that world point back to screen coords at the new zoom
+ *   3. Return the pan offset that keeps the cursor stationary
+ */
 export function panForZoomToPoint(
   current: View,
   newZoom: number,
@@ -31,8 +53,10 @@ export function panForZoomToPoint(
 ): { panX: number; panY: number } {
   const safeOldZoom = current.zoom > 0 && Number.isFinite(current.zoom) ? current.zoom : 1;
   const safeNewZoom = newZoom > 0 && Number.isFinite(newZoom) ? newZoom : safeOldZoom;
+  // Convert cursor screen position → world coordinates at old zoom
   const worldX = (cursor.x - current.panX) / safeOldZoom;
   const worldY = (cursor.y - current.panY) / safeOldZoom;
+  // Convert world position back → screen coordinates at new zoom (this is the new pan)
   return {
     panX: cursor.x - worldX * safeNewZoom,
     panY: cursor.y - worldY * safeNewZoom,
@@ -43,6 +67,7 @@ interface BoardState {
   tool: Tool;
   color: string;
   strokeWidth: number;
+  /** Per-user viewport (panX, panY, zoom) — NOT shared between peers. Each client has its own independent view. */
   view: View;
   setTool: (tool: Tool) => void;
   setColor: (color: string) => void;
@@ -96,6 +121,10 @@ export const useBoardStore = create<BoardState>((set) => ({
       view: { ...s.view, panX: s.view.panX + dx, panY: s.view.panY + dy },
     }));
   },
+  /**
+   * General-purpose viewport setter — used by the Board's Ctrl+scroll
+   * handler to apply pan+zoom simultaneously.
+   */
   setView: (next) => {
     set((s) => {
       const merged: View = { ...s.view, ...next };

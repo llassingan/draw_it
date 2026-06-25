@@ -1,3 +1,21 @@
+/**
+ * Playwright E2E test configuration for multi-user whiteboard tests.
+ *
+ * Key decisions:
+ * - `webServer` launches both the Vite dev server and the WebSocket
+ *   server as dependencies before tests run. The WS server is started
+ *   from the ../ws workspace.
+ * - `reuseExistingServer: true` on both servers avoids restarting them
+ *   across test runs during local development — start them once, run
+ *   tests repeatedly.
+ * - Multi-user tests use multiple browser contexts (not just pages)
+ *   in the same test file, simulating two independent clients connected
+ *   to the same room.
+ * - In CI (`process.env['CI']`): retries are enabled, worker count is
+ *   capped at 1, and the reporter switches to line-based output for
+ *   cleaner logs.
+ */
+
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 14022;

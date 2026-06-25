@@ -1,4 +1,11 @@
 # Multi-stage Dockerfile for the Yjs WebSocket server.
+#
+# Stage 1 (builder): installs deps, builds the shared package, builds the ws
+# app, then prunes to production-only dependencies via pnpm deploy.
+#
+# Stage 2 (runtime): copies only production artifacts (~80MB alpine image).
+# Healthcheck calls the HTTP endpoint to verify the server is reachable.
+#
 # Final image: ~80MB on alpine.
 
 # ---------- builder ----------

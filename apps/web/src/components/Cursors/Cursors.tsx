@@ -1,3 +1,12 @@
+/**
+ * Renders remote users' cursors as SVG arrow markers with name/tool labels,
+ * overlaid on the canvas stack.
+ *
+ * A setInterval at 500ms triggers a re-render to check cursor age.
+ * Cursors older than CURSOR_FADE_AFTER_MS (3s) are rendered at 20% opacity.
+ * Each cursor is positioned absolutely using the world coordinates broadcast
+ * via awareness state. The SVG path draws a standard arrow pointer shape.
+ */
 import { CURSOR_FADE_AFTER_MS, type Tool } from '@whiteboard/shared';
 import { useEffect, useState } from 'react';
 

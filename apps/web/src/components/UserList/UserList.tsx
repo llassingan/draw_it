@@ -1,3 +1,10 @@
+/**
+ * Sidebar panel showing connected users with color dots, names, and tool emojis.
+ *
+ * toolEmoji maps each tool name to a representative emoji icon.
+ * The local user is marked with "(you)".
+ * The panel is scrollable up to 60vh.
+ */
 import type { RemoteUser } from '../../hooks/useAwareness';
 
 export interface UserListProps {

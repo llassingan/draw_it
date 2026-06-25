@@ -1,3 +1,21 @@
+/**
+ * Main UI orchestrator for the collaborative whiteboard.
+ *
+ * Wires together:
+ *  - Yjs data flow: shapes Y.Array observer → localShapes[] → Canvas render
+ *  - Awareness: cursor coordinate + active-tool broadcast to other peers
+ *  - Panning: Space+drag, middle-click, or the dedicated pan tool
+ *  - Zoom: Ctrl/⌘+scroll toward the cursor (not the center)
+ *
+ * The Y.Array observer snapshots shapes into local state on every change so
+ * the Canvas re-renders from stable React props rather than raw Yjs objects.
+ *
+ * Panning uses setPointerCapture for reliable tracking even when the pointer
+ * leaves the viewport element.
+ *
+ * ConnectionBadge shows offline / initializing state.
+ * ZoomBadge shows the current zoom percentage with a click-to-reset action.
+ */
 import {
   ZOOM_MAX,
   ZOOM_MIN,
@@ -30,6 +48,8 @@ export interface BoardProps {
   wsUrl: string;
 }
 
+// ActiveShape tracks the shape currently being drawn (null when idle).
+// The kind discriminates the drawing operation; the id maps to a Yjs shape.
 type ActiveShape =
   | { kind: 'pen'; id: string }
   | { kind: 'rect'; id: string }
@@ -37,6 +57,8 @@ type ActiveShape =
   | { kind: 'circle'; id: string }
   | null;
 
+// PanState tracks the pointer ID and start positions for panning —
+// client coordinates for calculating delta, pan coordinates for the view offset.
 interface PanState {
   pointerId: number;
   startClientX: number;
@@ -45,6 +67,8 @@ interface PanState {
   startPanY: number;
 }
 
+// Maps viewport interaction state to the CSS cursor shown on the canvas
+// (crosshair when drawing, grab when pan-ready, grabbing while panning).
 const VIEWPORT_CURSOR_BY_MODE: Record<'drawing' | 'pan-ready' | 'panning', string> = {
   drawing: 'crosshair',
   'pan-ready': 'grab',
@@ -70,6 +94,8 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   const panRef = useRef<PanState | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
+  // Snapshot the Y.Array into local React state on every change
+  // so the Canvas renders from plain JS objects, not raw Yjs types.
   useEffect(() => {
     if (shapes === null) return;
     const update = (): void => {
@@ -181,6 +207,8 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
     [setCursor],
   );
 
+  // Zooms toward the cursor, not the viewport center.
+  // Uses panForZoomToPoint to keep the point under the cursor stable.
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>): void => {
       if (!event.ctrlKey && !event.metaKey) return;
@@ -218,6 +246,8 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
         startPanY: current.panY,
       };
       setIsPanning(true);
+      // setPointerCapture keeps the pointer tracked reliably even
+      // when it moves outside the viewport element.
       const targetEl = event.target as Element | null;
       if (targetEl !== null && typeof targetEl.setPointerCapture === 'function') {
         try {
@@ -318,6 +348,7 @@ export default function Board({ roomId, wsUrl }: BoardProps): JSX.Element {
   );
 }
 
+/** Shows offline / initializing / syncing state. Hidden when ready and connected. */
 function ConnectionBadge({ isConnected, isReady }: { isConnected: boolean; isReady: boolean }): JSX.Element | null {
   if (isReady && isConnected) return null;
   return (
@@ -334,6 +365,7 @@ function ConnectionBadge({ isConnected, isReady }: { isConnected: boolean; isRea
   );
 }
 
+/** Shows the current zoom percentage. Click to reset view (zoom + pan). */
 function ZoomBadge({ view, onReset }: { view: View; onReset: () => void }): JSX.Element {
   return (
     <button

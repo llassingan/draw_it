@@ -1,3 +1,12 @@
+/**
+ * Floating toolbar with tool buttons, color picker, and zoom controls.
+ *
+ * Centered and sticky at the top of the board viewport.
+ * TOOL_BUTTONS maps each tool to an icon, label, and testId.
+ * Color swatches are drawn from the shared PALETTE.
+ * Every button uses aria-pressed for accessibility.
+ * The zoom display shows the current zoom percentage.
+ */
 import { PALETTE, type Tool } from '@whiteboard/shared';
 
 import { useBoardStore } from '../../store/boardStore';

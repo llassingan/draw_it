@@ -1,3 +1,10 @@
+// Monorepo-wide Prettier config.
+// semi: always add semicolons (avoids ASI edge cases).
+// singleQuote: prefer single quotes (less visual noise, common TS convention).
+// trailingComma: 'all' reduces git diffs on multi-line additions.
+// printWidth: 100 — wider than default (80) to reduce unnecessary line wrapping.
+// arrowParens: always for consistency across arrow function signatures.
+// endOfLine: lf for cross-platform git safety.
 {
   "semi": true,
   "singleQuote": true,

@@ -1,57 +1,66 @@
-# dependencies
+# ===== Dependencies =====
+# pnpm virtual store — always gitignored
 node_modules/
 .pnp
 .pnp.js
 .yarn/install-state.gz
 
-# build outputs
+# ===== Build outputs =====
+# Vite dev/dist, Next.js (legacy), and CI artifacts
 .next/
 out/
 build/
 dist/
 dist-node/
 
-# typescript
+# ===== TypeScript =====
+# Incremental compilation caches
 *.tsbuildinfo
 next-env.d.ts
 
-# debug
+# ===== Debug logs =====
+# Package manager and general log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 *.log
 
-# env
+# ===== Environment =====
+# Secrets and local overrides never committed
 .env
 .env*.local
 
-# bun
+# ===== Bun (alt runtime) =====
 bun.lockb
 
-# database
+# ===== Database (reserved for future use) =====
 drizzle/
 tmp/emails/
 
-# editor
+# ===== Editors / OS =====
+# IDE configs and OS junk — per-developer, not shared
 .vscode/
 .idea/
 *.swp
 .DS_Store
 
-# test artifacts
+# ===== Test artifacts =====
+# Vitest coverage and Playwright output directories
 coverage/
 playwright-report/
 test-results/
 
-# runtime (PIDs and logs from scripts/start.sh)
+# ===== Runtime =====
+# PIDs and logs from scripts/start.sh (background server orchestration)
 .runtime/
 
-# caches
+# ===== Caches =====
+# Local and Turbo build caches
 .cache/
 .turbo/
 
-# opencode / sisyphus runtime
+# ===== OpenCode / Sisyphus agent runtime =====
 .opencode/
 .sisyphus/
 opencode.json

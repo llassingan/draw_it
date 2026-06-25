@@ -1,3 +1,8 @@
+// Shared strict TypeScript base config extended by every package in the monorepo
+// (apps/web, apps/ws, packages/shared). Enables all strict family flags plus
+// noUnusedLocals/noUnusedParameters, exactOptionalPropertyTypes, noUncheckedIndexedAccess,
+// and noImplicitOverride. Isolated modules + bundler resolution target Vite's native
+// ESM pipeline. Declaration + declarationMap emit .d.ts for downstream consumers.
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {

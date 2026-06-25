@@ -1,3 +1,9 @@
+// Monorepo-wide ESLint config for the collaborative whiteboard POC.
+// Uses @typescript-eslint with strict type-aware rules (recommended-requiring-type-checking).
+// Errors on any, unsafe operations, non-null assertions, and floating promises
+// to catch CRDT/concurrency bugs early. CI enforces max-warnings=0 (no warnings allowed).
+// Test/e2e/config overrides relax strict rules since vitest mocks, playwright fixtures,
+// and build configs need flexibility. Config file overrides allow require() for .js/.cjs configs.
 {
   "root": true,
   "env": {

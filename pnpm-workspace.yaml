@@ -1,6 +1,10 @@
+# Monorepo workspace definition for pnpm.
+# apps/*    — deployable applications (web frontend on :14022, WebSocket server on :14045)
+# packages/* — shared libraries (pure types + utilities with zero React dependency)
 packages:
   - "apps/*"
   - "packages/*"
+# Allow native builds for esbuild (bundler) and leveldown (Yjs persistence backend)
 allowBuilds:
   esbuild: set this to true or false
   leveldown: set this to true or false
